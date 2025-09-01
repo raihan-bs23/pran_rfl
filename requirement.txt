@@ -1,0 +1,6 @@
+fastapi
+python-multipart
+ujson
+a2wsgi
+parse-accept-language
+packaging

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem name="Dashboard" action="dashboard_view_action"
+              id="dashboard_root_menu"
+              parent="idc_ai_campaign.campaign_menu_root"
+              sequence="0"/>
+    <menuitem id="dashboard_configuration_menu"
+              parent="idc_ai_campaign.campaign_configuration_root"
+              name="Dashboard"
+              sequence="5"/>
+    <menuitem name="Dashboard Theme" id="dashboard_theme_menu"
+              parent="odoo_dynamic_dashboard.dashboard_configuration_menu"
+              sequence="5" action="dashboard_theme_action"/>
+    <menuitem name="Dashboard Menu" id="dashboard_menu_view_action"
+              parent="odoo_dynamic_dashboard.dashboard_configuration_menu"
+              sequence="6" action="dashboard_menu_action"/>
+    <menuitem name="Dashboard Blocks" id="dashboard_block_menu"
+              parent="odoo_dynamic_dashboard.dashboard_configuration_menu"
+              sequence="7" action="dashboard_block_action"/>
+</odoo>
