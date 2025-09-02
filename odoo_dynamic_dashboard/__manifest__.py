@@ -12,7 +12,7 @@
     'company': 'Cybrosys Techno Solutions',
     'maintainer': 'Cybrosys Techno Solutions',
     'website': "https://www.cybrosys.com",
-    'depends': ['web', 'bs_ai_agent'],
+    'depends': ['web', 'bs_helpdesk_ai_agent'],
     'data': [
         'security/ir.model.access.csv',
         'data/dashboard_theme_data.xml',

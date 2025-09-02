@@ -40,6 +40,7 @@ class ProductInput(BaseModel):
 
 class SaleOrderInput(BaseModel):
     partner_phone: str
+    call_id: str
     product_list: list[str, ProductInput]
 
 class HelpDeskTicket(BaseModel):
@@ -49,6 +50,7 @@ class HelpDeskTicket(BaseModel):
     partner_name: str
     priority: str
     description: str
+    call_id: str
 
 
 def get_or_create_partner(env, mobile):
@@ -87,7 +89,7 @@ async def create_sale_order(param: SaleOrderInput, env: Annotated[Environment, D
         raise HTTPException(status_code=400, detail=f"Invalid product_list format: {e}")
     order_line = []
     for key, val in products_dict.items():
-        product_id = env["product.template"].sudo().search([("barcode", "=", val.get("sku_code"))])
+        product_id = env["product.template"].sudo().search([("barcode", "=", val.get("sku_code"))], limit=1)
         if product_id:
             order_line.append(
                 (0, 0, {
@@ -101,7 +103,10 @@ async def create_sale_order(param: SaleOrderInput, env: Annotated[Environment, D
     sale_order = env['sale.order'].create({
         'partner_id': partner_id.id,
         'date_order': datetime.now(),
-        'order_line': order_line
+        'order_line': order_line,
+        "user_id": env.uid,
+        "is_ai_created": True,
+        "call_id": param.call_id
     })
 
     if sale_order:
@@ -125,13 +130,16 @@ async def create_support_ticket(param: HelpDeskTicket, env: Annotated[Environmen
             "priority": PRIORITY.get(param.priority.lower()),
             "description": param.description,
             "partner_name": param.partner_name,
+            "user_id": env.uid,
+            "call_id": param.call_id,
+            "is_ai_created": True,
         })
         if ticket:
             _logger.info(f"********** Helpdesk Ticket Created **********: {ticket.name}")
             print('Helpdesk Ticket Created', ticket.name)
             return [{
-                'ticket_id': ticket.name,
-                'response_message': f"Helpdesk Ticket: {ticket.name} Created Successfully"
+                'ticket_id': ticket.id,
+                'response_message': f"Helpdesk Ticket: {ticket.reference} Created Successfully"
             }]
     except Exception as e:
         _logger.info(f"**********Invalid Payload **********: {param}")
