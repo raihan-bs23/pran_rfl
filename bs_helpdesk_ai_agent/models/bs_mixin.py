@@ -4,8 +4,7 @@ from odoo import api, fields, models, Command
 from datetime import datetime
 from markupsafe import escape
 import requests
-
-from source_code.odoo.odoo.exceptions import UserError
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
