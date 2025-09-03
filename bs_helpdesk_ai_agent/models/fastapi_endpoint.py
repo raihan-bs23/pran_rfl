@@ -100,7 +100,7 @@ async def create_sale_order(param: SaleOrderInput, env: Annotated[Environment, D
                     })
                 )
             else:
-                errors += f"No Products Found for SKU CODE: [{val.get("sku_code")}] !\n"
+                errors += f"No Products Found for SKU CODE: [{val.get('sku_code')}] !\n"
         if not errors:
             sale_order = env['sale.order'].create({
                 'partner_id': partner_id.id,
