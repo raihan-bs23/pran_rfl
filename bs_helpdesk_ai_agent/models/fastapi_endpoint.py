@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 from typing import Annotated
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from odoo import api, fields, models, Command
 from odoo.api import Environment
 from datetime import datetime
-from fastapi.responses import HTMLResponse
-import ast
+from fastapi.responses import HTMLResponse, JSONResponse
+import ast, json
 import logging
 from odoo.addons.fastapi.dependencies import odoo_env
 _logger = logging.getLogger(__name__)
@@ -75,6 +75,7 @@ def get_or_create_partner(env, mobile):
             "name": mobile,
             "is_company": False,
         })
+        _logger.info(f"********** New Partner Created **********: {partner.name}")
     return partner
 
 
@@ -84,38 +85,42 @@ async def create_sale_order(param: SaleOrderInput, env: Annotated[Environment, D
     try:
         products_dict = ast.literal_eval(param.product_list[0])
         partner_id = get_or_create_partner(env, param.partner_phone)
+        order_line = []
+        errors = ""
+        for key, val in products_dict.items():
+            product_id = env["product.template"].sudo().search([("barcode", "=", val.get("sku_code"))], limit=1)
+            if product_id:
+                order_line.append(
+                    (0, 0, {
+                        'name': 'Order from Help Desk',
+                        'product_id': product_id.id,
+                        'price_unit': val.get('price', 1.0),
+                        'product_uom_qty': val.get('quantity', 0.0),
+                        'tax_id': [(6, 0, [])],
+                    })
+                )
+            else:
+                errors += f"No Products Found for SKU CODE: [{val.get("sku_code")}] !\n"
+        if not errors:
+            sale_order = env['sale.order'].create({
+                'partner_id': partner_id.id,
+                'date_order': datetime.now(),
+                'order_line': order_line,
+                "user_id": env.uid,
+                "is_ai_created": True,
+                "call_id": param.call_id
+            })
+
+            if sale_order:
+                _logger.info(f"********** Sale Order Created **********: {sale_order.name}")
+                print('Sale Order Created', sale_order.name)
+                return [{
+                    'sale_order_id': sale_order.name,
+                    'response_message': f"Sale Order: {sale_order.name} Created Successfully"
+                }]
     except Exception as e:
         _logger.info(f"**********Invalid Payload **********: {param.product_list}")
         raise HTTPException(status_code=400, detail=f"Invalid product_list format: {e}")
-    order_line = []
-    for key, val in products_dict.items():
-        product_id = env["product.template"].sudo().search([("barcode", "=", val.get("sku_code"))], limit=1)
-        if product_id:
-            order_line.append(
-                (0, 0, {
-                    'name': 'Order from Help Desk',
-                    'product_id': product_id.id,
-                    'price_unit': val.get('price', 1.0),
-                    'product_uom_qty': val.get('quantity', 0.0),
-                    'tax_id': [(6, 0, [])],
-                })
-            )
-    sale_order = env['sale.order'].create({
-        'partner_id': partner_id.id,
-        'date_order': datetime.now(),
-        'order_line': order_line,
-        "user_id": env.uid,
-        "is_ai_created": True,
-        "call_id": param.call_id
-    })
-
-    if sale_order:
-        _logger.info(f"********** Sale Order Created **********: {sale_order.name}")
-        print('Sale Order Created', sale_order.name)
-        return [{
-            'sale_order_id': sale_order.name,
-            'response_message': f"Sale Order: {sale_order.name} Created Successfully"
-        }]
 
 
 @pran_rfl_router.post("/create_support_ticket")
@@ -149,20 +154,60 @@ async def create_support_ticket(param: HelpDeskTicket, env: Annotated[Environmen
 
 
 @pran_rfl_router.get("/get_all_products_information")
-async def get_all_products_information(env: Annotated[Environment, Depends(odoo_env)]):
-    products = env['product.template'].search_read([], ['display_name', 'list_price', 'bengali_pronunciation', 'barcode'])
+async def get_all_products_information(
+        env: Annotated[Environment, Depends(odoo_env)],
+        format: str = Query("html", enum=["html", "json"])
+):
+    products = env['product.template'].search_read(
+        [],
+        ['display_name', 'list_price', 'bengali_pronunciation', 'barcode']
+    )
 
-    html = "<html><head><title>IDC Product Catalog</title></head><body>"
-    html += "<h1>Available Products</h1><ul>"
-
-    for product in products:
-        html += (
-             f"<li>"
-             f"<strong>Product Name: {product.get('display_name', '')}</strong><br/>"
-             f"<strong> মূল্য :</strong> {product.get('list_price', 0.0)} টাকা<br/> "
-             f"<strong> উচ্চারণ: </strong>{product.get('bengali_pronunciation', '')}<br/> "
-             f"<strong> SKU CODE: </strong>{product.get('barcode')}</li><br/>"
+    # --- JSON Response ---
+    if format == "json":
+        return JSONResponse(
+            content=json.loads(json.dumps(products, indent=4, ensure_ascii=False))
         )
 
-    html += "</ul></body></html>"
+    # --- HTML Response (Table) ---
+    html = """
+        <html>
+        <head>
+            <title>IDC Product Catalog</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; font-size: 18px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+                th { background-color: #f2f2f2; font-size: 18px; }
+                td { font-size: 17px; }
+                h1 { font-size: 24px; margin-bottom: 10px; }
+            </style>
+        </head>
+        <body>
+            <h1>Available Products</h1>
+            <table>
+                <tr>
+                    <th>Product Name</th>
+                    <th>মূল্য</th>
+                    <th>উচ্চারণ</th>
+                    <th>SKU CODE</th>
+                </tr>
+        """
+
+    for product in products:
+        html += f"""
+                <tr>
+                    <td>{product.get('display_name', '')}</td>
+                    <td>{product.get('list_price', 0.0)} টাকা</td>
+                    <td>{product.get('bengali_pronunciation', '')}</td>
+                    <td>{product.get('barcode', '')}</td>
+                </tr>
+            """
+
+    html += """
+            </table>
+        </body>
+        </html>
+        """
+
     return HTMLResponse(content=html)

@@ -19,6 +19,7 @@
         'data/helpdesk.xml',
         'views/product_template_views.xml',
         'views/helpdesk_ticket.xml',
+        'views/sale_order_views.xml',
         'wizard/conversation_wizard_views.xml',
     ],
 }
