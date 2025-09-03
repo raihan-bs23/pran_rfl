@@ -4,6 +4,9 @@ from odoo import api, fields, models, Command
 from datetime import datetime
 from markupsafe import escape
 import requests
+
+from source_code.odoo.odoo.exceptions import UserError
+
 _logger = logging.getLogger(__name__)
 
 
@@ -11,16 +14,14 @@ class BsMixin(models.AbstractModel):
     _name = "bs.mixin"
     
     
-    def fetch_call_information(self, call_id):
-        if not call_id:
-            objects = self.env["sale.order"].search([('is_ai_created', '=', True), ('call_info_fetched', '=', False)])
-        else:
-            objects = self
+    def fetch_call_information(self):
 
         verbex_api_base_url = self.env['ir.config_parameter'].get_param('bs_helpdesk_ai_agent.verbex_api_base_url', False)
         verbex_api_key = self.env['ir.config_parameter'].get_param('bs_helpdesk_ai_agent.verbex_api_key', False)
+        if not verbex_api_base_url or not verbex_api_key:
+            raise UserError("Verbex API Base URL and API Key are not Configured in System !")
 
-        for obj in objects:
+        for obj in self:
             _logger.info(f"********** Fetching Call Info for : {obj.name} **********")
             url = f"{verbex_api_base_url}/v1/calls/{obj.call_id}"
             headers = {

@@ -26,7 +26,7 @@ class HelpdeskTicket(models.Model):
 
     def fetch_call_info(self):
         if self.call_id:
-            self.fetch_call_information(self.call_id)
+            self.fetch_call_information()
 
 
     def view_conversation(self):
